@@ -1,0 +1,10 @@
+{
+  "name": "konpo-comments",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Embeddable Figma-style comments for WIP sites. One script tag, no auth.",
+  "dependencies": {
+    "@vercel/blob": "^2.4.0"
+  }
+}

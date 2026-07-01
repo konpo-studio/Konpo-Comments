@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aperture — WIP preview</title>
+<style>
+  :root { --bg:#0c0c10; --fg:#f4f4f6; --muted:#9a9aa3; --line:rgba(255,255,255,.1); --brand:#ff7a3c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif; background:var(--bg); color:var(--fg); -webkit-font-smoothing:antialiased; line-height:1.5; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:22px 7vw; border-bottom:1px solid var(--line); position:sticky; top:0; backdrop-filter:blur(20px); background:rgba(12,12,16,.6); z-index:10; }
+  .logo { font-weight:700; letter-spacing:-.02em; font-size:18px; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:28px; font-size:14px; }
+  .hero { padding:11vh 7vw 9vh; max-width:1100px; }
+  .eyebrow { color:var(--brand); font-weight:600; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
+  h1 { font-size:clamp(40px,7vw,76px); line-height:1.02; letter-spacing:-.03em; margin:18px 0 22px; max-width:14ch; }
+  .lede { font-size:20px; color:var(--muted); max-width:52ch; }
+  .cta { display:inline-flex; gap:14px; margin-top:34px; }
+  .btn { padding:14px 24px; border-radius:12px; font-weight:600; font-size:15px; text-decoration:none; }
+  .btn.primary { background:var(--brand); color:#1a0d05; }
+  .btn.ghost { border:1px solid var(--line); color:var(--fg); }
+  section { padding:8vh 7vw; border-top:1px solid var(--line); }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; max-width:1100px; }
+  .card { border:1px solid var(--line); border-radius:18px; padding:26px; background:rgba(255,255,255,.02); }
+  .card h3 { margin:0 0 8px; font-size:18px; letter-spacing:-.01em; }
+  .card p { margin:0; color:var(--muted); font-size:14px; }
+  .pricing { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; max-width:1000px; }
+  .tier { border:1px solid var(--line); border-radius:18px; padding:28px; }
+  .tier.feature { border-color:var(--brand); }
+  .price { font-size:40px; font-weight:700; letter-spacing:-.02em; }
+  .price span { font-size:15px; color:var(--muted); font-weight:400; }
+  footer { padding:6vh 7vw; color:var(--muted); font-size:13px; border-top:1px solid var(--line); }
+  .section-label { color:var(--brand); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:24px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">◐ Aperture</div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#docs">Docs</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div class="eyebrow">Work in progress</div>
+    <h1>Ship cameras that think for themselves.</h1>
+    <p class="lede">Aperture is an edge-vision platform for hardware teams. Train, deploy, and monitor models on-device — no cloud round-trip.</p>
+    <div class="cta">
+      <a class="btn primary" href="#">Start free</a>
+      <a class="btn ghost" href="#">Book a demo</a>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="section-label">What you get</div>
+    <div class="grid">
+      <div class="card"><h3>On-device inference</h3><p>Sub-10ms latency with quantized models running directly on your sensors.</p></div>
+      <div class="card"><h3>Fleet rollouts</h3><p>Push a new model to ten thousand devices with staged canary releases.</p></div>
+      <div class="card"><h3>Drift alerts</h3><p>Catch accuracy regressions in the field before your customers do.</p></div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="section-label">Pricing</div>
+    <div class="pricing">
+      <div class="tier"><h3>Hobby</h3><div class="price">$0<span>/mo</span></div><p style="color:var(--muted);margin-top:12px">Up to 3 devices. Community support.</p></div>
+      <div class="tier feature"><h3>Studio</h3><div class="price">$49<span>/mo</span></div><p style="color:var(--muted);margin-top:12px">Unlimited devices. Drift alerts. Priority support.</p></div>
+      <div class="tier"><h3>Fleet</h3><div class="price">Custom</div><p style="color:var(--muted);margin-top:12px">SSO, on-prem, and a dedicated solutions engineer.</p></div>
+    </div>
+  </section>
+
+  <footer id="docs">
+    © 2026 Aperture Labs — internal preview, not for distribution.
+  </footer>
+
+  <!-- ↓↓↓ This is the only line you add to a project ↓↓↓ -->
+  <script src="embed.js" data-project="aperture-demo" defer></script>
+</body>
+</html>
