@@ -4,10 +4,10 @@ Figma-style comments you embed in any WIP site with **one script tag**. No login
 add a name, click an element, and leave a note. Built for vibe-coded prototypes and design
 review. A little commenting tool by [Konpo Studio](https://konpo.studio).
 
-**Live:** https://konpo-comments.vercel.app · **Demo:** https://konpo-comments.vercel.app/demo.html
+**Live:** https://kp-comments.vercel.app · **Demo:** https://kp-comments.vercel.app/demo.html
 
 ```html
-<script src="https://konpo-comments.vercel.app/embed.js"
+<script src="https://kp-comments.vercel.app/embed.js"
         data-project="my-site"
         defer></script>
 ```

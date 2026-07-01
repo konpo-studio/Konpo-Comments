@@ -53,7 +53,7 @@
   var BRAND = {
     name: "Comments", accent: 250.5, lottie: true, // hue 250.5 @ 75% L = lighter brand purple #9680FF exactly
     mark: '<svg viewBox="0 0 24 24" width="16" height="16" fill="#5B21B6" aria-hidden="true"><circle cx="6" cy="12" r="2.1"/><circle cx="12" cy="12" r="2.1"/><circle cx="18" cy="12" r="2.1"/></svg>',
-    creditText: "A little commenting tool by ", creditName: "Konpo", creditUrl: "https://konpo-comments.vercel.app/",
+    creditText: "A little commenting tool by ", creditName: "Konpo", creditUrl: "https://kp-comments.vercel.app/",
   };
   // Accent is interpolated into the stylesheet text, so force it to a numeric hue (0–360).
   var ACCENT_H = String(Math.max(0, Math.min(360, Number(cfg.accent || ds.accent) || BRAND.accent)));
