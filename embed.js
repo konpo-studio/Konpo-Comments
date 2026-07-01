@@ -2622,7 +2622,7 @@
     on(document, "visibilitychange", function () { if (document.visibilityState === "visible") sync(); });
   }
 
-  window.__konpoComments = window.__konpoKomments = window.__konpoNotes = { destroy: destroy, version: "2.40.0", project: PROJECT, reveal: function (id) { var t = findThread(id); if (t) { openThread(t); revealThread(t); } } };
+  window.__konpoComments = window.__konpoKomments = window.__konpoNotes = { destroy: destroy, version: "1.1.0", project: PROJECT, reveal: function (id) { var t = findThread(id); if (t) { openThread(t); revealThread(t); } } };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

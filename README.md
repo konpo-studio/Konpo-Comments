@@ -166,73 +166,8 @@ be blocked (401/403) on the sites you embed it into.
 
 ## Changelog
 
-- **2.40.0** — Comment button now uses a **chat-bubble icon** (typing dots bounce on click).
-  Dock brand is now **logo-only** — removed the "Comments" text label and the `K` chip; the
-  Konpo Lottie logo remains, with the credit tooltip on hover.
-- **2.39.0** — **View comments** button moved to sit right after **Comment** in the bar.
-  **Fixed sticker placement** (real clicks were blocked by the stamping overlay) and added a
-  **hold-to-grow** interaction: press and hold to drop a sticker — it shakes and grows the
-  longer you hold, released at that size (stored per stamp). Dock icons now animate on
-  **click, not hover** (Lucide-style tap animations).
-- **2.38.0** — Animated **document icon** on the Comment button: its text lines "write in"
-  (staggered stroke draw) on hover and the page lifts slightly. Pure inline SVG + CSS — no
-  Rive/Lottie runtime, zero added weight.
-- **2.37.0** — Bar + panel are now **solid pure white** (glass removed, fully opaque) for
-  maximum legibility. Widget label renamed **Notes → "Comments"**; the collapsed launcher
-  uses a **chat-bubble icon** instead of the dot mark. Lottie logo made robust: the JSON is
-  fetched with a graceful fallback (dots stay if it can't load) and CORS headers were added
-  for the Lottie assets so the animation works on cross-origin embeds.
-- **2.36.0** — Polish pass. **Google Sans Flex** (variable UI font) + **Google Sans Code**
-  (snippets) across the widget and landing page, with system fallbacks. Springier buttons
-  and blur-in / scale entrance animations for popovers and the panel (beui-style feel, done
-  in vanilla — the embed stays framework-free).
-- **2.35.0** — Clearer hidden-state toggle. When the bar is hidden it now shows a branded
-  **"Notes" launcher pill** (logo + label, on a white surface so it stands out on any
-  background) instead of a plain handle — click it (or press `K`) to reopen. Added `data-open`
-  to start the bar shown (used on the landing page).
-- **2.34.0** — **Stamps.** New stamp tool in the bar: pick an emoji sticker (👍 🔥 ⭐ ✅ +1 …)
-  and click the page to drop it — repeatable, FigJam-style. Stamps anchor to the page/element,
-  scroll with it, persist like comments, and are deletable (click a stamp). They're excluded
-  from comment counts, the list, and arrow-nav.
-- **2.33.0** — Simpler bar UX. The dock is now binary — **shown or fully hidden** (peek tab),
-  no compact middle state; `K` / the peek tab / the `«` chevron toggle it, and the choice
-  persists across reloads (default hidden). Removed **hunter mode** — the ☰ list handles
-  jumping (click a comment), and the `←`/`→` arrow keys step through open comments across pages
-  whenever the bar is shown.
-- **2.32.0** — Zero-setup context restore. The widget now auto-captures and reopens
-  **Webflow Tabs & Dropdowns** and native `<details>` on click — no `data-comment-anchor`
-  or hooks required (the `restoreState` hook is now only for custom app modals). Reveal waits
-  for the target to actually become visible before scrolling. The comment-mode viewport frame
-  is thinner, subtler, and has rounded corners.
-- **2.31.0** — Lighter brand purple. Default accent is now the lighter **#9680FF** (hue 250);
-  the darker **#9747FF** is reserved for hover (`--accent-hover`, primary buttons). `data-accent`
-  default is `250`.
-- **2.30.0** — Single brand (Konpo Notes) — removed the Surge "Sergio Says" white-label and
-  its host/`data-brand` auto-switch, hover heckling, and mascot assets. Comments are now
-  **hidden by default**: the bar loads in "comment mode off" (logo only, no pins, no ring) so
-  it stays out of the way while iterating. Press `K` or click the bar/logo to toggle comment
-  mode on/off; `C` also turns it on.
-- **2.29.0** — Context-restoring navigation. Clicking a comment now rebuilds the screen it
-  was made on: navigate to its route, run host `restoreState` hook to reopen modals/tabs/panels,
-  poll for the target element (async SPA render), scroll to it, re-anchor the pin, and flash a
-  highlight. Comments store `scrollX/scrollY`, `screenId`, and `uiState`. Selectors prefer
-  stable `data-comment-anchor` / `id` / `data-testid` hooks over brittle structural paths.
-  New `captureState`/`restoreState`/`screenId` config hooks + `__konpoNotes.reveal(id)`.
-- **1.7.0** — Vercel Blob backend (durable, per-project JSON). Fully-white dock + transparent
-  white-bg logo. Brand tooltip with link to Konpo Studio. Lottie loops endlessly. Disabled
-  deployment protection so the embed is publicly reachable.
-- **1.6.0** — Lottie logo recolored: transparent background, dark-purple dots, looping.
-- **1.5.0** — "Copy for Claude" prompt export on open threads. Animated Lottie logo (lazy,
-  self-hosted, graceful fallback).
-- **1.4.0** — Avatars switched to boring-avatars "beam" (vanilla port) in Konpo purples.
-- **1.3.0** — Collapsible dock (down to a single brand icon, persisted). Opaque panel +
-  popover. South-Park-style avatars (later replaced). Branding in dock + panel header.
-- **1.2.0** — Side panel listing all open comments with click-to-jump.
-- **1.1.0** — Renamed to **Konpo Notes**; Konpo purple accent (`#9747FF`). Robustness fixes
-  (reply box survives polling, popover stays focused on scroll, optimistic-write reconciliation,
-  resolve/delete persistence, per-page comment scoping).
-- **1.0.0** — Initial release: one-script embed, no-auth pinning, threads, resolve, shared
-  backend, Shadow-DOM UI on the Konpo controls kit.
+- **1.1** — **Automatic screenshots & environment capture.** Every comment now grabs a screenshot of the page — shown as a thumbnail you can click to expand — plus the browser, OS, and screen resolution, so feedback arrives with full context. Storage is more reliable (Vercel Blob needs only a read-write token), and emoji stickers got a lighter look with quick hover-to-remove.
+- **1.0** — Initial release. One script tag, no login: pin a comment to any element, reply, resolve, and hand it to Claude Code. Durable per-project storage on Vercel Blob, a comments side-panel with click-to-jump, context-restoring navigation (reopens Webflow tabs/dropdowns and modals), emoji stickers, and staging-only embedding for Webflow.
 
 ## Credits
 

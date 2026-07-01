@@ -125,20 +125,6 @@
     </div>
 
     <div class="card">
-      <h2>Knobs</h2>
-      <ol>
-        <li><b>data-project</b> — namespace for the comments. Same value = shared thread. Use a different one per site/branch.</li>
-        <li><b>data-accent</b> — hue 0–360. <code class="inline">250</code> Konpo purple (default), <code class="inline">14</code> coral, <code class="inline">25</code> amber, <code class="inline">210</code> blue.</li>
-        <li><b>data-endpoint</b> — optional. Defaults to where embed.js is hosted; set it if you serve the script from a CDN.</li>
-        <li><b>data-position</b> — <code class="inline">bottom</code> (default) or <code class="inline">bottom-right</code>.</li>
-        <li><b>data-open</b> — start with the bar shown instead of hidden. Only sets the first-visit default; a visitor's later show/hide choice is remembered.</li>
-        <li><b>data-staging</b> — boot only on staging (<code class="inline">*.webflow.io</code> + localhost) and silently no-op on live domains. For platforms like Webflow that ship the same code to both.</li>
-        <li><b>data-allow-hosts</b> — explicit comma-list of hosts to run on, e.g. <code class="inline">staging.site.com, *.webflow.io</code> (<code class="inline">*.</code> matches any subdomain). Use instead of <code class="inline">data-staging</code> for a custom staging URL.</li>
-      </ol>
-      <p class="muted">Loads hidden (just a small tab) so pins stay out of the way while you iterate — press <code class="inline">K</code> or click the tab to show the bar; it remembers your choice. Shortcuts: <code class="inline">K</code> show / hide · <code class="inline">C</code> comment · <code class="inline">←</code>/<code class="inline">→</code> jump between comments · <code class="inline">Enter</code> post · <code class="inline">Esc</code> cancel.</p>
-    </div>
-
-    <div class="card">
       <div class="card-head">
         <h2>Use it in Webflow — staging only</h2>
         <button class="copy-btn" id="copyBtnWf" type="button" data-target="wf-snippet">Copy</button>
