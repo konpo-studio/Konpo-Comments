@@ -166,8 +166,8 @@ be blocked (401/403) on the sites you embed it into.
 
 ## Changelog
 
-- **1.1** — **Automatic screenshots & environment capture.** Every comment now grabs a screenshot of the page — shown as a thumbnail you can click to expand — plus the browser, OS, and screen resolution, so feedback arrives with full context. Storage is more reliable (Vercel Blob needs only a read-write token), and emoji stickers got a lighter look with quick hover-to-remove.
-- **1.0** — Initial release. One script tag, no login: pin a comment to any element, reply, resolve, and hand it to Claude Code. Durable per-project storage on Vercel Blob, a comments side-panel with click-to-jump, context-restoring navigation (reopens Webflow tabs/dropdowns and modals), emoji stickers, and staging-only embedding for Webflow.
+- **1.1** — The big one. **Durable storage** on Vercel Blob: comments and their resolve/delete state now persist across sessions and devices, shared per project. **Automatic screenshots** on every comment — a thumbnail you can click to expand — plus the captured browser, OS, and screen resolution. Also **emoji stickers**, a **comments side-panel** with click-to-jump, **context-restoring navigation** that reopens Webflow tabs/dropdowns and modals when you open a comment, and one-click **Send to Claude Code**.
+- **1.0** — Initial release. One script tag, no login: pin a comment to any element, reply, and resolve — all in a self-contained Shadow-DOM widget that stays out of the way.
 
 ## Credits
 
