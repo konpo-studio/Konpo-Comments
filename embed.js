@@ -2189,7 +2189,7 @@
       if (!res) return;
       if (res.durable === false && state.durable) {
         state.durable = false;
-        toast("Backend is up but storage isn't connected yet — comments won't persist across restarts until you add a KV store (see README).");
+        toast("Backend is up, but Blob storage isn't connected yet — comments won't persist across restarts until BLOB_READ_WRITE_TOKEN is set on the deployment (see README).");
       } else if (res.durable) {
         state.durable = true;
       }
