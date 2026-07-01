@@ -139,11 +139,15 @@ npx vercel --prod
 Then connect storage so comments persist across cold starts:
 
 ```bash
-vercel blob create-store konpo-notes --access public
-# auto-links BLOB_READ_WRITE_TOKEN to the project
-vercel env add BLOB_BASE_URL production   # the store's public base, e.g. https://<id>.public.blob.vercel-storage.com
-npx vercel --prod                          # redeploy
+vercel blob create-store konpo-comments --access public
+# auto-links BLOB_READ_WRITE_TOKEN — the only variable the code needs.
+# In the dashboard "Connect Store" dialog, tick "Add a read-write token env var".
+npx vercel --prod                          # redeploy so the function picks up the token
 ```
+
+`BLOB_READ_WRITE_TOKEN` is all that's required. `BLOB_BASE_URL` is optional — the
+store's public CDN origin is learned automatically from the first write; set it only
+to pin that origin for the cheapest polling reads.
 
 `GET /api/comments` returns `{ "durable": true }` once Blob is wired up. Make sure
 **Deployment Protection / Vercel Authentication is OFF** for the project, or the embed will
