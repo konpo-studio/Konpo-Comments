@@ -1135,8 +1135,42 @@
     revealThread(cur);
   }
 
-  // Reopen common UI state automatically — Webflow Tabs & Dropdowns — with no host
-  // code. Runs first; the host restoreState hook (for custom modals/panels) runs after.
+  /* ---------- generic screen convention (data-konpo-screen / data-konpo-goto) ----------
+     A drop-in way for ANY app to make comments precisely locatable across screens
+     with zero widget-specific JS: tag each view/tab/panel container with
+     data-konpo-screen="name" and the control that opens it with data-konpo-goto="name".
+     The widget records which screens a comment is nested in and, on reveal, replays
+     the navigation (outer->inner) before scrolling to the element. Apps that prefer
+     one function can expose window.konpoGoTo(name) instead. */
+  function screenChain(el) { // names of data-konpo-screen ancestors, outermost first
+    var out = [], n = el;
+    while (n && n.nodeType === 1) {
+      var name = n.getAttribute && n.getAttribute("data-konpo-screen");
+      if (name) out.unshift(name);
+      n = n.parentElement;
+    }
+    return out;
+  }
+  function screenEl(name) { try { return document.querySelector("[data-konpo-screen=" + cssAttrVal(name) + "]"); } catch (e) { return null; } }
+  function screenIsVisible(name) { var el = screenEl(name); return !!(el && targetShowable(el, null)); }
+  function gotoScreen(name) {
+    if (typeof window.konpoGoTo === "function") { try { window.konpoGoTo(name); return true; } catch (e) {} }
+    var ctrl = null;
+    try { ctrl = document.querySelector("[data-konpo-goto=" + cssAttrVal(name) + "]"); } catch (e) {}
+    if (ctrl && ctrl.click) { ctrl.click(); return true; }
+    return false;
+  }
+  function waitUntil(fn, ms) {
+    return new Promise(function (resolve) {
+      var deadline = Date.now() + (ms || 3500);
+      (function tick() { var ok = false; try { ok = fn(); } catch (e) {} if (ok || Date.now() > deadline) { resolve(); return; } setTimeout(tick, 100); })();
+    });
+  }
+
+  // Reopen the UI state a comment was placed in. Webflow Tabs/Dropdowns and the
+  // generic data-konpo-screen convention are handled automatically with no host
+  // code; the host restoreState hook (for anything custom) runs after. Returns a
+  // Promise so reveal waits for async navigation before resolving the element.
   function autoRestoreState(ui) {
     if (!ui) return;
     if (ui._wfTab) { // click the matching Webflow tab link
@@ -1150,15 +1184,24 @@
         if (toggle && toggle.click) toggle.click();
       }
     }
+    var chain = ui._scr; // navigate the data-konpo-screen chain outer -> inner
+    if (!chain || !chain.length) return;
+    return chain.reduce(function (p, name) {
+      return p.then(function () {
+        if (screenIsVisible(name)) return; // already there
+        if (gotoScreen(name)) return waitUntil(function () { return screenIsVisible(name); });
+      });
+    }, Promise.resolve());
   }
   function restoreUiState(t) {
     if (!t) return null;
     var ui = t.uiState;
-    try { autoRestoreState(ui); } catch (e) {}
-    if (HOOKS.restoreState && ui) {
-      try { return HOOKS.restoreState(ui, t); } catch (e) {}
-    }
-    return null;
+    var auto;
+    try { auto = autoRestoreState(ui); } catch (e) {}
+    return Promise.resolve(auto).then(function () {
+      if (HOOKS.restoreState && ui) { try { return HOOKS.restoreState(ui, t); } catch (e) {} }
+      return null;
+    });
   }
   // Open any collapsed <details> that contains the element, so it can lay out.
   function openDetailsAncestors(el) {
@@ -1413,6 +1456,8 @@
     if (pane && pane.getAttribute("data-w-tab")) (s = s || {})._wfTab = pane.getAttribute("data-w-tab");
     var dd = el.closest(".w-dropdown");    // Webflow Dropdown
     if (dd) { var i = wfDropdownIndex(dd); if (i >= 0) (s = s || {})._wfDropdown = i; }
+    var chain = screenChain(el);           // generic data-konpo-screen convention
+    if (chain.length) (s = s || {})._scr = chain;
     return s;
   }
   function captureUiState(el) {

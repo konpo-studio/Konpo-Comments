@@ -46,25 +46,49 @@ Figma-Make exports. Everyone on the same `data-project` shares the same threads.
 
 Config can also be set via `window.KonpoNotes = { project, accent, … }` before the script loads.
 
-### Restoring context (SPAs, modals, tabs)
+### Restoring context — precise comments across screens (SPAs, tabs, modals)
 
-Clicking a comment doesn't just show the note — it **reconstructs the screen the note
-was made on**: it navigates to the comment's route (if you're elsewhere), reopens any
-tab/dropdown/panel it was made inside, waits for the target element to actually become
-visible, scrolls to it, re-anchors the pin, and flashes a highlight around it.
+Clicking a comment doesn't just show the note — it **reconstructs the screen the note was
+made on**: navigate to its route, reopen the tab/panel/modal it lives in, wait for the target
+element to become visible, scroll to it, re-anchor the pin, and flash a highlight. And a pin
+only ever shows when its target is **actually visible on the current view** — a comment placed
+on your dashboard won't float over your login screen; it appears when you're on that screen.
 
-**This works with zero setup — just the embed script.** No `data-comment-anchor`, no
-hooks. The widget captures a stable selector automatically (preferring `id`, `data-testid`,
-`data-cy`, etc., falling back to a structural path) and, on click, auto-reopens the common
-cases:
+There are three levels, in order of effort — most prototypes only need level 2.
+
+**1 · Zero setup — just the embed script.** The widget captures a stable selector automatically
+(preferring `id`, `data-testid`, `data-cy`, … then a rooted structural path) and auto-reopens
+the common cases on click:
 
 - **Webflow Tabs** — re-activates the tab pane the comment lives in
 - **Webflow Dropdowns** — reopens the dropdown
 - **Native `<details>`** — opens the collapsed section(s) around the element
 
-**Only need the hooks for a custom app** whose modals/tabs live in your own components and
-aren't reachable any other way. All hooks are optional; set them on `window.KonpoNotes`
-before the script loads:
+**2 · Two data attributes — for any custom app or prototype (recommended).** If your app shows
+different screens by toggling views (a router, a login gate, tabs, panels, modals), tell the
+widget how to reach each one with two attributes — **no JavaScript**:
+
+- `data-konpo-screen="name"` on each screen / view / tab / panel **container**
+- `data-konpo-goto="name"` on the **control** that opens it (a nav item, tab button, "Sign in" …)
+
+The widget records which screens a comment is nested in and, on reveal, **replays the navigation
+outer → inner** (clicks each `data-konpo-goto`, waiting for each to appear) before scrolling to
+the exact element. Nest them freely — e.g. a comment inside *App → Settings tab*:
+
+```html
+<button data-konpo-goto="app">Sign in</button>
+<div data-konpo-screen="app">
+  <button data-konpo-goto="settings">Settings</button>
+  <section data-konpo-screen="settings"> … the commented element lives here … </section>
+</div>
+```
+
+Prefer one function over attributes? Expose `window.konpoGoTo("name")` and the widget calls that
+instead of clicking. It's fully backward-compatible: add nothing and off-screen pins simply hide
+until you're on their screen.
+
+**3 · Full hooks — for anything the above can't express** (state that isn't reachable by clicking
+a control). All optional; set them on `window.KonpoNotes` before the script loads:
 
 ```js
 window.KonpoNotes = {
@@ -90,6 +114,20 @@ window.KonpoNotes = {
 Prefer stable `id`/`data-*` attributes on important elements if you want pins to survive
 big layout refactors — but it's an enhancement, never required.
 
+### Wiring it into a prototype with Claude Code
+
+Point Claude Code at your prototype's repo and paste this — it adds the script **and** the
+screen-tracking so comments locate precisely across views:
+
+> Integrate Konpo comments into this app.
+> 1. Add `<script src="https://kp-comments.vercel.app/embed.js" data-project="<PROJECT>" defer></script>` right before `</body>` (Next.js: render it in the root layout).
+> 2. For precise cross-screen comments, add `data-konpo-screen="<name>"` to **every** top-level screen / view / route / tab / panel / modal container, and `data-konpo-goto="<name>"` to the control (nav item, tab, "Sign in" button, …) that navigates to each one — use the **same name** on both, and nest them where views nest. If screens are switched by a single function instead, expose it globally as `window.konpoGoTo(name)`.
+> Don't add any other Konpo code — the widget handles capture, storage, and restore.
+
+Replace `<PROJECT>` with a unique namespace (your repo name works). That's the whole
+integration: the widget captures which screen each comment was placed on and auto-navigates
+back to it on click.
+
 Field mapping vs. the classic schema: `elementSelector` → `selector`, `xPercent`/`yPercent`
 → `relX`/`relY` (0–1 fractions), `routeOrView` → `path` + `url`, plus new `scrollX`/`scrollY`,
 `screenId`, and `uiState`.
@@ -98,9 +136,11 @@ Field mapping vs. the classic schema: `elementSelector` → `selector`, `xPercen
 
 ## How it works
 
-- **Anchoring** — on click it stores a robust CSS selector + the relative (x, y) inside the
-  element, plus absolute page coords as a fallback. On render it re-resolves the selector and
-  positions the pin; if the element is gone, it falls back to page coords and dims the pin.
+- **Anchoring** — on click it stores a robust, body-rooted CSS selector + the relative (x, y)
+  inside the element. On render it re-resolves the selector and positions the pin **only when
+  the target is genuinely visible on the current view** — not found, CSS-hidden, or covered by
+  an overlay/another screen ⇒ the pin hides (it stays in the list and reappears when its view is
+  shown), instead of floating at a stale position over an unrelated screen.
 - **Sync** — the widget polls `GET /api/comments?project=…` every 5s while the tab is visible.
   Writes are optimistic (the pin appears instantly) and reconcile with the server response.
 - **Storage** — **Vercel Blob**: one JSON file per project (`konpo/v3/<project>.json`). Reads hit
