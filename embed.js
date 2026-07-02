@@ -1196,10 +1196,18 @@
   function restoreUiState(t) {
     if (!t) return null;
     var ui = t.uiState;
+    // If the screen chain wasn't captured (comment predates the data-konpo-screen
+    // tags), derive it from the element itself when it's reachable in the DOM — so
+    // older comments still auto-navigate once the tags exist.
+    if ((!ui || !ui._scr) && t.selector) {
+      var el = safeQuery(t.selector);
+      var chain = el ? screenChain(el) : [];
+      if (chain.length) ui = Object.assign({}, ui || {}, { _scr: chain });
+    }
     var auto;
     try { auto = autoRestoreState(ui); } catch (e) {}
     return Promise.resolve(auto).then(function () {
-      if (HOOKS.restoreState && ui) { try { return HOOKS.restoreState(ui, t); } catch (e) {} }
+      if (HOOKS.restoreState && t.uiState) { try { return HOOKS.restoreState(t.uiState, t); } catch (e) {} }
       return null;
     });
   }
