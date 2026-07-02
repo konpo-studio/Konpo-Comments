@@ -1637,16 +1637,24 @@
      for the author this session via an in-memory data URL. */
   var localShots = {};                 // id -> data URL, in-memory only (never persisted / uploaded)
   var _h2cPromise = null;
-  var H2C_SRC = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+  // Try more than one CDN so a single provider hiccup doesn't cost a screenshot.
+  var H2C_SRCS = [
+    "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+    "https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js",
+  ];
   function loadHtml2canvas() {
     if (window.html2canvas) return Promise.resolve(window.html2canvas);
     if (_h2cPromise) return _h2cPromise;
     _h2cPromise = new Promise(function (resolve, reject) {
-      var s = document.createElement("script");
-      s.src = H2C_SRC; s.async = true;
-      s.onload = function () { window.html2canvas ? resolve(window.html2canvas) : reject(new Error("no html2canvas")); };
-      s.onerror = function () { _h2cPromise = null; reject(new Error("html2canvas load failed")); };
-      (document.head || document.documentElement).appendChild(s);
+      var i = 0;
+      (function tryNext() {
+        if (i >= H2C_SRCS.length) { _h2cPromise = null; reject(new Error("html2canvas load failed")); return; }
+        var s = document.createElement("script");
+        s.src = H2C_SRCS[i++]; s.async = true;
+        s.onload = function () { window.html2canvas ? resolve(window.html2canvas) : tryNext(); };
+        s.onerror = tryNext; // fall through to the next CDN
+        (document.head || document.documentElement).appendChild(s);
+      })();
     });
     return _h2cPromise;
   }
@@ -1677,8 +1685,27 @@
     };
   }
 
-  // Capture the current viewport as a downscaled JPEG data URL. Resolves null on any failure.
-  function captureViewport() {
+  // Draw a pin marker at the drop point (output-canvas px) so the screenshot shows
+  // exactly where the comment was placed.
+  function drawDropMarker(canvas, x, y) {
+    try {
+      var ctx = canvas.getContext("2d");
+      var r = Math.max(9, Math.round(canvas.width * 0.013));
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = r * 0.7; ctx.shadowOffsetY = r * 0.25;
+      ctx.fillStyle = "hsl(" + ACCENT_H + " 90% 56%)"; ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.lineWidth = Math.max(2, r * 0.3); ctx.strokeStyle = "#fff"; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, r * 0.32, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.restore();
+    } catch (e) {}
+  }
+  // Capture the viewport as a downscaled JPEG data URL, with a marker at the pin's
+  // drop point. Rejects on failure (captureViewport retries around it).
+  function captureOnce(anchor) {
+    var sx = window.scrollX, sy = window.scrollY, sw = window.innerWidth, sh = window.innerHeight;
+    var mx = anchor ? anchor.pageX - sx : -1, my = anchor ? anchor.pageY - sy : -1; // drop point in this viewport
     return loadHtml2canvas().then(function (html2canvas) {
       var bg = "";
       try { bg = getComputedStyle(document.body).backgroundColor; } catch (e) {}
@@ -1689,8 +1716,7 @@
         useCORS: true,
         logging: false,
         ignoreElements: function (el) { return el === host; }, // never shoot our own overlay
-        x: window.scrollX, y: window.scrollY,
-        width: window.innerWidth, height: window.innerHeight,
+        x: sx, y: sy, width: sw, height: sh,
         windowWidth: document.documentElement.scrollWidth,
         windowHeight: document.documentElement.scrollHeight,
       });
@@ -1702,20 +1728,35 @@
         out.width = Math.round(w * k); out.height = Math.round(ht * k);
         out.getContext("2d").drawImage(canvas, 0, 0, out.width, out.height);
       }
+      if (mx >= 0 && my >= 0 && mx <= sw && my <= sh) drawDropMarker(out, mx / sw * out.width, my / sh * out.height);
       return { dataUrl: out.toDataURL("image/jpeg", 0.82), w: out.width, h: out.height };
+    });
+  }
+  // Two attempts so a transient render hiccup doesn't leave a comment without its shot.
+  function captureViewport(anchor) {
+    return captureOnce(anchor).catch(function () {
+      return new Promise(function (r) { setTimeout(r, 250); }).then(function () { return captureOnce(anchor); });
     }).catch(function () { return null; });
   }
 
   // Upload a captured shot to Blob (via the server). Resolves the public URL, or
   // null when Blob isn't configured / the upload fails.
-  function uploadShot(id, shot) {
+  function uploadShot(id, shot, _retried) {
     if (!shot || !shot.dataUrl) return Promise.resolve(null);
+    var retry = function () {
+      if (_retried) return null;
+      return new Promise(function (r) { setTimeout(r, 500); }).then(function () { return uploadShot(id, shot, true); });
+    };
     return fetch(ENDPOINT + "/api/screenshot", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: PROJECT, id: id, img: shot.dataUrl }),
     }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (res) { return res && res.url ? res.url : null; })
-      .catch(function () { return null; });
+      .then(function (res) {
+        if (res && res.url) return res.url;
+        if (res && res.durable === false) return null; // Blob not configured — retrying won't help
+        return retry();                                // transient (network/5xx) — one retry
+      })
+      .catch(function () { return retry(); });
   }
 
   // After the thread has a real id: await the capture, upload it, and patch the URL in.
@@ -1754,7 +1795,7 @@
 
   function openComposer(anchor) {
     closePopovers();
-    var capturePromise = captureViewport(); // starts now; latency hides behind typing
+    var capturePromise = captureViewport(anchor); // starts now; latency hides behind typing. anchor -> pin marker in the shot
     var env = envDetails();
     ensureName(function () {
       var ta = h("textarea", { class: "field", placeholder: "Be specific and clear, so we don't have to ask you to clarify later", rows: "2" });
