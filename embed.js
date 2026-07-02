@@ -106,6 +106,7 @@
     edge: "bottom",        // which screen edge the dock is snapped to (resets to bottom on load)
     dockFrac: 0.5,         // fraction along that edge (0..1) where the dock sits
     userFilter: null,      // panel: show only this author's comments (null = everyone)
+    search: "",            // panel: free-text filter over comment/reply body, author, target
     dockLevel: 2,          // dock is binary now: 2 = shown (pins + tools), 0 = hidden off-screen (peek tab)
   };
 
@@ -154,6 +155,8 @@
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     camera:
       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>',
+    search:
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>',
     expand:
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
     send:
@@ -449,6 +452,15 @@
     ".panel{position:fixed;top:16px;right:16px;bottom:84px;width:300px;max-width:calc(100vw - 32px);border-radius:20px;display:none;flex-direction:column;overflow:hidden;z-index:16;background:var(--surface-solid);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:var(--shadow);}" +
     ".panel.open{display:flex;animation:konpoPanelIn .3s var(--spring);}" +
     ".panel-head{display:flex;align-items:center;gap:8px;padding:10px 8px 10px 16px;border-bottom:1px solid var(--hairline);}" +
+    ".panel-search{position:relative;padding:8px 12px;border-bottom:1px solid var(--hairline);flex:0 0 auto;}" +
+    ".panel-search .ps-ico{position:absolute;left:23px;top:50%;transform:translateY(-50%);color:var(--text-faint);display:flex;pointer-events:none;}" +
+    ".panel-search input{height:34px;width:100%;padding:0 30px 0 32px;border-radius:10px;border:1px solid var(--hairline);background:var(--surface-solid);color:var(--text);font:inherit;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;}" +
+    ".panel-search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring);}" +
+    ".panel-search input::placeholder{color:var(--text-faint);}" +
+    ".panel-search .ps-clear{position:absolute;right:20px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:none;border-radius:50%;background:var(--inset);color:var(--text-muted);cursor:pointer;display:none;place-items:center;padding:0;}" +
+    ".panel-search .ps-clear svg{width:11px;height:11px;}" +
+    ".panel-search.has-q .ps-clear{display:grid;}" +
+    ".ptxt mark{background:hsl(var(--accent-h) var(--accent-s) var(--accent-l)/.34);color:inherit;border-radius:3px;padding:0 1px;}" +
     ".panel-users{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--hairline);overflow-x:auto;scrollbar-width:none;flex:0 0 auto;}" +
     ".panel-users::-webkit-scrollbar{display:none;}" +
     ".u-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px 0 4px;border-radius:999px;border:none;background:var(--inset);color:var(--text);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;flex:0 0 auto;max-width:140px;transition:background .15s var(--ease),color .15s var(--ease);}" +
@@ -952,6 +964,18 @@
     els.segAll = h("button", { onclick: function () { setFilter("all"); } }, [h("span", { text: "All" }), h("span", { class: "seg-n" })]);
     els.seg = h("div", { class: "seg" }, [els.segOpen, els.segAll]);
     var head = h("div", { class: "panel-head" }, [els.seg]);
+    els.panelSearch = h("input", { type: "text", placeholder: "Search comments…", "aria-label": "Search comments", spellcheck: "false" });
+    els.panelSearchClear = h("button", { class: "ps-clear", title: "Clear search", "aria-label": "Clear search", html: ICON.close });
+    els.panelSearchRow = h("div", { class: "panel-search" }, [
+      h("span", { class: "ps-ico", html: ICON.search }),
+      els.panelSearch,
+      els.panelSearchClear,
+    ]);
+    els.panelSearch.addEventListener("input", function () { state.search = els.panelSearch.value; refreshPanel(); });
+    els.panelSearch.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && els.panelSearch.value) { e.stopPropagation(); clearSearch(); }
+    });
+    els.panelSearchClear.addEventListener("click", function () { clearSearch(); els.panelSearch.focus(); });
     els.panelUsers = h("div", { class: "panel-users" });
     els.panelList = h("div", { class: "panel-list" });
     els.copyAllBtn = h("button", { class: "btn", title: "One prompt with every open comment — paste it into Claude", onclick: copyAllPrompt });
@@ -960,8 +984,14 @@
     if (BRAND.creditName) creditKids.push(h("a", { href: BRAND.creditUrl, target: "_blank", rel: "noopener noreferrer", text: BRAND.creditName + " ↗" }));
     var credit = h("div", { class: "panel-credit" }, creditKids);
     var foot = h("div", { class: "panel-foot" }, [els.copyAllBtn, credit]);
-    els.panel = h("div", { class: "surface panel" }, [brand, head, els.panelUsers, els.panelList, foot]);
+    els.panel = h("div", { class: "surface panel" }, [brand, head, els.panelSearchRow, els.panelUsers, els.panelList, foot]);
     root.appendChild(els.panel);
+  }
+
+  function clearSearch() {
+    state.search = "";
+    if (els.panelSearch) els.panelSearch.value = "";
+    refreshPanel();
   }
 
   function togglePanel() {
@@ -977,12 +1007,23 @@
     ranked.forEach(function (t, i) { m[t.id] = i + 1; });
     return m;
   }
+  // does a comment (its body/author/target, or any reply) contain the query?
+  function threadMatches(t, q) {
+    if (((t.body || "") + " " + (t.author || "") + " " + (t.label || "")).toLowerCase().indexOf(q) !== -1) return true;
+    var r = t.replies || [];
+    for (var i = 0; i < r.length; i++) {
+      if (((r[i].body || "") + " " + (r[i].author || "")).toLowerCase().indexOf(q) !== -1) return true;
+    }
+    return false;
+  }
   // panel is project-wide (comments span pages); pins stay current-page. Stamps never list.
   function panelThreads() {
+    var q = (state.search || "").trim().toLowerCase();
     return state.threads.filter(function (t) {
       if (isStamp(t)) return false;
       if (state.filter !== "all" && t.resolved) return false;
       if (state.userFilter && (t.author || "Anonymous") !== state.userFilter) return false;
+      if (q && !threadMatches(t, q)) return false;
       return true;
     });
   }
@@ -1039,6 +1080,19 @@
     });
   }
 
+  // Append text to a node, wrapping occurrences of the (lowercased) query in <mark>.
+  function hiliteInto(node, text, q) {
+    if (!q) { node.textContent = text; return node; }
+    var lower = text.toLowerCase(), i = 0, idx;
+    while ((idx = lower.indexOf(q, i)) !== -1) {
+      if (idx > i) node.appendChild(document.createTextNode(text.slice(i, idx)));
+      node.appendChild(h("mark", { text: text.slice(idx, idx + q.length) }));
+      i = idx + q.length;
+    }
+    if (i < text.length) node.appendChild(document.createTextNode(text.slice(i)));
+    return node;
+  }
+
   function refreshPanel() {
     if (!state.panelOpen || !els.panelList) return;
     var comments = state.threads.filter(function (t) { return !isStamp(t); });
@@ -1058,11 +1112,16 @@
         ? "One prompt with " + who + "’s open comments — paste it into Claude"
         : "One prompt with every open comment — paste it into Claude";
     }
+    var q = (state.search || "").trim().toLowerCase();
+    if (els.panelSearchRow) els.panelSearchRow.classList.toggle("has-q", !!q);
     var items = panelThreads();
     var scrollTop = els.panelList.scrollTop;
     clear(els.panelList);
     if (!items.length) {
-      els.panelList.appendChild(h("div", { class: "panel-empty", text: state.userFilter ? "No " + (state.filter === "all" ? "" : "open ") + "comments from " + state.userFilter + "." : state.filter === "all" ? "No comments yet." : "No open comments — press C to leave one." }));
+      var emptyMsg = q ? "No comments match “" + state.search.trim() + "”."
+        : state.userFilter ? "No " + (state.filter === "all" ? "" : "open ") + "comments from " + state.userFilter + "."
+        : state.filter === "all" ? "No comments yet." : "No open comments — press C to leave one.";
+      els.panelList.appendChild(h("div", { class: "panel-empty", text: emptyMsg }));
       return;
     }
     var numById = chronoMapAll();
@@ -1091,7 +1150,7 @@
           pnum,
           h("div", { class: "pcol" }, [
             h("div", { class: "pwho", text: t.author || "Anonymous" }),
-            h("div", { class: "ptxt", text: t.body }),
+            hiliteInto(h("div", { class: "ptxt" }), t.body || "", q),
             h("div", { class: "pmeta", text: meta }),
           ]),
         ]);
