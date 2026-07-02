@@ -1173,6 +1173,28 @@
     var r = el.getBoundingClientRect();
     return r.width > 0 || r.height > 0; // present but display:none (hidden tab) => wait
   }
+  // Is the anchored element actually visible on the CURRENT view? Catches the three
+  // ways a comment's target can be present-but-not-really-there: CSS-hidden
+  // (display/visibility/opacity), zero-size, or laid out but covered by an overlay
+  // / another screen (e.g. a full-screen login or modal on top of the app). The
+  // occlusion test asks "is the target the top element at its own anchor point?" —
+  // our own overlay/pins are filtered out, and an off-screen anchor counts as
+  // visible (it's just scrolled away, the pin should still track it).
+  function targetShowable(el, t) {
+    if (!el) return false;
+    if (el.checkVisibility && !el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) return false;
+    var ax = r.left + (t && t.relX != null ? t.relX : 0.5) * r.width;
+    var ay = r.top + (t && t.relY != null ? t.relY : 0.5) * r.height;
+    if (ax < 0 || ay < 0 || ax >= window.innerWidth || ay >= window.innerHeight) return true; // scrolled off-screen, not covered
+    var stack = document.elementsFromPoint(ax, ay);
+    for (var i = 0; i < stack.length; i++) {
+      if (stack[i] === host) continue; // skip our own pins / overlay
+      return stack[i] === el || el.contains(stack[i]) || stack[i].contains(el);
+    }
+    return true; // nothing there but us
+  }
   // Poll for the anchored element — in an SPA/tab it only becomes visible after the
   // route loads and its state is restored (async render). Gives up after a few seconds.
   function resolveAnchor(t, cb) {
@@ -1181,7 +1203,7 @@
     (function tick() {
       var el = safeQuery(t.selector);
       if (el) openDetailsAncestors(el); // reveal <details> so the hidden target can lay out
-      if (el && isRenderable(el)) { cb(el); return; }
+      if (el && targetShowable(el, t)) { cb(el); return; }
       if (Date.now() > deadline) { cb(null); return; }
       setTimeout(tick, 120);
     })();
@@ -1196,16 +1218,11 @@
           // after the smooth scroll settles: re-lay the pin on the element + flash it
           setTimeout(function () { layout(); flashHighlight(el); }, 420);
         } else {
-          // element is gone (state couldn't be restored) — fall back to the saved
-          // scroll position and flash the pin at its recorded page coordinates.
-          var top = t.scrollY != null ? t.scrollY : Math.max(0, (t.pageY || 0) - window.innerHeight / 2);
-          window.scrollTo({ top: top, left: t.scrollX || 0, behavior: "smooth" });
-          setTimeout(function () {
-            layout();
-            var pe = pinEls[t.id];
-            if (pe) flashRect(pe.getBoundingClientRect());
-          }, 420);
-          if (t.selector) toast("Couldn’t find the exact element — showing the saved position.", { duration: 3500 });
+          // The target isn't visible on the current view — it's on another screen /
+          // behind an overlay, or was removed. Don't jump to a stale position over an
+          // unrelated screen; tell the user where it lives (the thread still opens so
+          // they can read it, and its pin reappears when that view is shown).
+          toast("This comment was left on another screen — open that view to see it in place.", { duration: 4000 });
         }
       });
     });
@@ -1794,7 +1811,10 @@
     els.popover = pop;
 
     var pinEl = pinEls[thread.id];
-    var rect = pinEl ? pinEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
+    var pr = pinEl && getComputedStyle(pinEl).display !== "none" ? pinEl.getBoundingClientRect() : null;
+    // when the pin is hidden (target not on this view), anchor the popover to the
+    // viewport centre instead of the top-left corner its 0×0 rect would give
+    var rect = (pr && (pr.width || pr.height)) ? pr : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
     positionPopover(pop, { x: rect.left, y: rect.top });
     updatePins();
   }
@@ -1983,27 +2003,22 @@
       var t = findThread(id);
       if (!t) return;
       var pin = pinEls[id];
-      var x, y, orphan = false;
       var el = t.selector ? safeQuery(t.selector) : null;
-      // Target exists but isn't rendered right now (hidden tab / panel / modal, so its
-      // rect is 0×0): hide the pin instead of stranding it at the top-left corner. It
-      // reappears in place when its view is shown again (scroll/resize/observer/poll
+      // Only show a pin when its target is genuinely visible on the CURRENT view.
+      // Not found, CSS-hidden, zero-size, or covered by an overlay / another screen
+      // (e.g. a login page on top of the app) -> hide it rather than float it at a
+      // stale saved position over an unrelated screen. It stays in the list + count
+      // and reappears in place when its own view is shown (scroll/resize/observer/poll
       // all re-run layout).
-      if (el && !isRenderable(el)) { pin.style.display = "none"; return; }
+      if (!el || !targetShowable(el, t)) { pin.style.display = "none"; return; }
       pin.style.display = "";
-      if (el) {
-        maybeReanchor(t, el); // upgrade a legacy/brittle selector to the robust form
-        var r = el.getBoundingClientRect();
-        x = r.left + (t.relX || 0) * r.width;
-        y = r.top + (t.relY || 0) * r.height;
-      } else {
-        x = (t.pageX || 0) - window.scrollX;
-        y = (t.pageY || 0) - window.scrollY;
-        orphan = true;
-      }
+      pin.classList.remove("orphan");
+      maybeReanchor(t, el); // upgrade a legacy/brittle selector to the robust form
+      var r = el.getBoundingClientRect();
+      var x = r.left + (t.relX || 0) * r.width;
+      var y = r.top + (t.relY || 0) * r.height;
       pin.style.left = x - off.x + "px";
       pin.style.top = y - off.y + "px";
-      pin.classList.toggle("orphan", orphan);
     });
     // keep the open thread popover glued to its pin (reposition only — no detach)
     var open = findOpenThread();
