@@ -2494,28 +2494,44 @@
     }
     return null;
   }
-  // Prefer a stable selector on the element itself; otherwise build a structural
-  // path but anchor it at the nearest ancestor that HAS a stable selector, so the
-  // path stays valid even if sibling structure shifts around it.
-  function cssPath(el) {
-    if (!(el instanceof Element)) return "";
-    var direct = stableSelectorFor(el);
-    if (direct) return direct;
+  // tag + absolute 1-based position among element siblings — deterministic and,
+  // once rooted, unique. (nth-of-type on its own drifts when sibling tags change.)
+  function nthChild(node) {
+    var idx = 1, sib = node;
+    while ((sib = sib.previousElementSibling)) idx++;
+    return node.tagName.toLowerCase() + ":nth-child(" + idx + ")";
+  }
+  // Full path from <body> down to el — always resolves to el on the current DOM.
+  function fullChildPath(el) {
     var parts = [], node = el;
-    while (node && node.nodeType === 1 && node !== document.body && parts.length < 8) {
-      var stable = stableSelectorFor(node);
-      if (stable) { parts.unshift(stable); return parts.join(" > "); }
-      var part = node.tagName.toLowerCase();
-      var parent = node.parentNode;
-      if (parent && parent.children) {
-        var same = [];
-        for (var i = 0; i < parent.children.length; i++) if (parent.children[i].tagName === node.tagName) same.push(parent.children[i]);
-        if (same.length > 1) part += ":nth-of-type(" + (same.indexOf(node) + 1) + ")";
-      }
-      parts.unshift(part);
+    while (node && node.nodeType === 1 && node !== document.body && node !== document.documentElement) {
+      parts.unshift(nthChild(node));
       node = node.parentNode;
     }
-    return parts.join(" > ");
+    return parts.length ? "body > " + parts.join(" > ") : "body";
+  }
+  // Prefer a stable selector on the element itself; otherwise build a path anchored
+  // at the nearest ancestor that HAS a stable (unique) selector, else rooted at
+  // <body>. Rooting + absolute :nth-child makes the selector resolve to the RIGHT
+  // element no matter which section it's in (an unrooted path matched the first
+  // similar element anywhere, or nothing — the "saved position" fallback). The
+  // result is round-trip verified; if it doesn't land back on el we use the full path.
+  function cssPath(el) {
+    if (!(el instanceof Element)) return "";
+    if (el === document.body) return "body";
+    if (el === document.documentElement) return "html";
+    var direct = stableSelectorFor(el);
+    if (direct) return direct;
+    var parts = [], node = el, rooted = false;
+    while (node && node.nodeType === 1 && node !== document.body && node !== document.documentElement) {
+      var stable = stableSelectorFor(node);
+      if (stable) { parts.unshift(stable); rooted = true; break; }
+      parts.unshift(nthChild(node));
+      node = node.parentNode;
+    }
+    var sel = (rooted ? "" : "body > ") + parts.join(" > ");
+    if (safeQuery(sel) === el) return sel;
+    return fullChildPath(el); // guaranteed to match on the current DOM
   }
   function uniq(sel) { try { return document.querySelectorAll(sel).length === 1; } catch (e) { return false; } }
   function cssEsc(s) { return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
