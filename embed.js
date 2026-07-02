@@ -1985,6 +1985,12 @@
       var pin = pinEls[id];
       var x, y, orphan = false;
       var el = t.selector ? safeQuery(t.selector) : null;
+      // Target exists but isn't rendered right now (hidden tab / panel / modal, so its
+      // rect is 0×0): hide the pin instead of stranding it at the top-left corner. It
+      // reappears in place when its view is shown again (scroll/resize/observer/poll
+      // all re-run layout).
+      if (el && !isRenderable(el)) { pin.style.display = "none"; return; }
+      pin.style.display = "";
       if (el) {
         maybeReanchor(t, el); // upgrade a legacy/brittle selector to the robust form
         var r = el.getBoundingClientRect();
