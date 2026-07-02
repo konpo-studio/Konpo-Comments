@@ -1986,6 +1986,7 @@
       var x, y, orphan = false;
       var el = t.selector ? safeQuery(t.selector) : null;
       if (el) {
+        maybeReanchor(t, el); // upgrade a legacy/brittle selector to the robust form
         var r = el.getBoundingClientRect();
         x = r.left + (t.relX || 0) * r.width;
         y = r.top + (t.relY || 0) * r.height;
@@ -2012,6 +2013,27 @@
 
   function safeQuery(sel) {
     try { return document.querySelector(sel); } catch (e) { return null; }
+  }
+
+  // One-time-per-session heal: when a comment's element is on the page, regenerate
+  // its selector with the current (robust, body-rooted) builder and, if it changed,
+  // persist + push the upgrade. This retires legacy/brittle selectors from older
+  // comments so they stop drifting — it only ever re-points at the element the pin
+  // is already sitting on, so it can't move a comment.
+  var reanchored = {};
+  function maybeReanchor(t, el) {
+    if (!t || !el || t._pending) return;
+    var id = t.id;
+    if (!id || id.slice(0, 4) === "tmp_") return; // needs a real server id to PATCH
+    if (reanchored[id]) return;
+    reanchored[id] = true; // attempt once per session, success or not
+    var fresh = cssPath(el);
+    if (!fresh || fresh === t.selector) return;
+    if (safeQuery(fresh) !== el) return; // only accept a verified round-trip
+    t.selector = fresh;
+    t.label = labelFor(el) || t.label;
+    persistCache();
+    api("PATCH", { project: PROJECT, id: id, selector: fresh, label: t.label }).catch(function () {});
   }
 
   /* ---------- reveal highlight (brief pulse around an element / its pin) ---------- */

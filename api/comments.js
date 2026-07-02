@@ -155,6 +155,8 @@ export default async function handler(req, res) {
         if (typeof body.shot === "string") t.shot = str(body.shot); // screenshot uploaded after create
         if (body.shotW != null) t.shotW = num(body.shotW);
         if (body.shotH != null) t.shotH = num(body.shotH);
+        if (typeof body.selector === "string" && body.selector) t.selector = str(body.selector); // re-anchor upgrade
+        if (typeof body.label === "string") t.label = str(body.label);
       });
       if (!thread) {
         res.status(404).json({ error: "thread not found" });
