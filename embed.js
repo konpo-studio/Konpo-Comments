@@ -107,6 +107,7 @@
     dockFrac: 0.5,         // fraction along that edge (0..1) where the dock sits
     userFilter: null,      // panel: show only this author's comments (null = everyone)
     search: "",            // panel: free-text filter over comment/reply body, author, target
+    editingEl: null,       // element currently open for double-click copy editing
     dockLevel: 2,          // dock is binary now: 2 = shown (pins + tools), 0 = hidden off-screen (peek tab)
   };
 
@@ -1570,6 +1571,75 @@
     openComposer(anchor);
   }
 
+  /* ---------- double-click to edit copy ----------
+     Double-click a piece of page text to edit it inline. On commit we keep the new
+     copy visible (a live preview) and drop a comment capturing the change, so the
+     developer gets a precise "change copy to X" suggestion pinned to the element. */
+  var INLINE_TAGS = { B: 1, I: 1, EM: 1, STRONG: 1, SPAN: 1, A: 1, BR: 1, CODE: 1, SMALL: 1, MARK: 1, U: 1, SUB: 1, SUP: 1, LABEL: 1, ABBR: 1, TIME: 1 };
+  function isEditableText(el) {
+    if (!el || el.nodeType !== 1 || isOurNode(el)) return false;
+    var tag = el.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "IMG" || tag === "SVG") return false;
+    if (el.isContentEditable) return false;
+    if (!(el.textContent || "").trim()) return false;
+    for (var i = 0; i < el.children.length; i++) if (!INLINE_TAGS[el.children[i].tagName]) return false; // only leaf/inline text, never a structural container
+    return true;
+  }
+  function onDoubleClickEdit(e) {
+    if (state.editingEl || state.placing || state.stamping) return; // don't fight other modes
+    var el = e.target;
+    if (!isEditableText(el)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    enterTextEdit(el);
+  }
+  function enterTextEdit(el) {
+    var orig = el.textContent;
+    var prevCE = el.getAttribute("contenteditable");
+    var prevOutline = el.style.outline, prevOffset = el.style.outlineOffset, prevRadius = el.style.borderRadius;
+    var done = false;
+    state.editingEl = el;
+    el.setAttribute("contenteditable", "true");
+    el.spellcheck = false;
+    el.style.outline = "2px solid hsl(" + ACCENT_H + " 90% 60%)";
+    el.style.outlineOffset = "2px";
+    if (!el.style.borderRadius) el.style.borderRadius = "3px";
+    el.focus();
+    try { var range = document.createRange(); range.selectNodeContents(el); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); } catch (e2) {}
+    function cleanup() {
+      if (prevCE == null) el.removeAttribute("contenteditable"); else el.setAttribute("contenteditable", prevCE);
+      el.style.outline = prevOutline; el.style.outlineOffset = prevOffset; el.style.borderRadius = prevRadius;
+      el.removeEventListener("keydown", onKey, true);
+      el.removeEventListener("blur", onBlur, true);
+      state.editingEl = null;
+    }
+    function commit() {
+      if (done) return; done = true;
+      var next = el.textContent;
+      cleanup();
+      if ((next || "").trim() && next.trim() !== orig.trim()) suggestCopyEdit(el, orig, next); // keep the edit, log the change
+      else el.textContent = orig; // no change / emptied -> restore
+    }
+    function cancel() { if (done) return; done = true; el.textContent = orig; cleanup(); }
+    function onKey(e2) {
+      if (e2.key === "Enter" && !e2.shiftKey) { e2.preventDefault(); el.blur(); }
+      else if (e2.key === "Escape") { e2.preventDefault(); e2.stopPropagation(); cancel(); }
+    }
+    function onBlur() { commit(); }
+    el.addEventListener("keydown", onKey, true);
+    el.addEventListener("blur", onBlur, true);
+  }
+  function suggestCopyEdit(el, orig, next) {
+    ensureName(function () {
+      var r = el.getBoundingClientRect();
+      var anchor = anchorFrom(el, r.left + r.width / 2, r.top + Math.min(r.height / 2, 18));
+      var oldT = orig.trim().replace(/\s+/g, " ").slice(0, 200);
+      var newT = next.trim().replace(/\s+/g, " ").slice(0, 400);
+      var body = "Change copy to: “" + newT + "”\n(was: “" + oldT + "”)";
+      createThread(anchor, body, { capturePromise: captureViewport(anchor), env: envDetails() });
+    });
+  }
+
   /* ---------- stamps: pick a sticker, then click the page to drop it (repeatable) ---------- */
   function toggleStampPicker() {
     if (state.stamping) { disarmStamping(); return; } // armed -> turn off
@@ -2736,6 +2806,7 @@
   on(document, "mousemove", onMoveWhilePlacing, true);
   on(document, "mousemove", onMoveWhileStamping, true);
   on(document, "click", onClickWhilePlacing, true);
+  on(document, "dblclick", onDoubleClickEdit, true); // double-click page text to edit copy
   on(document, "pointerdown", onStampDown, true); // stamps: press-and-hold to grow
   on(document, "pointerup", onStampUp, true);
   on(document, "pointercancel", function () { endStampHold(true); }, true);
